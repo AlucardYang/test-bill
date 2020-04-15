@@ -4,7 +4,7 @@
 # 安装依赖包
 npm install
 
-# 本地构建（h5dev.iber2.com:8080）
+# 本地构建（127.0.0.1:8080）
 npm run dev (npm start)
 
 # 构建生产包
