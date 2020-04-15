@@ -140,31 +140,10 @@ function preventNotNumber(event) {
   }
 }
 
-/**
- * 登录认证
- */
-function loginAuth(_this) {
-  let userInfo = localStorage.getItem('userInfo') && JSON.parse(localStorage.getItem('userInfo'));
-  if (userInfo && (userInfo.account == 'user' || userInfo.account == 'admin') && userInfo.password == '503503') {
-    if (/login/.test(_this.$route.path)) {
-      _this.$router.push({
-        path: '/home'
-      });
-    }
-  } else {
-    if (!/login/.test(_this.$route.path)) {
-      _this.$router.push({
-        path: '/login'
-      });
-    }
-  }
-}
-
 export {
   Brower,
   getQueryParams,
   formatDate,
   iosFocusOut,
   preventNotNumber,
-  loginAuth,
 }

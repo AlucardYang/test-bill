@@ -1,7 +1,7 @@
 <template>
-  <div class="spend-content">
+  <div v-show="isLoaded" class="spend-content">
     <!-- 一个新人弹窗 -->
-    <add-spend-dialog ref="addSpendDialog" @updateList="updateSpnedList"></add-spend-dialog>
+    <add-bill-dialog ref="addSpendDialog" @updateList="updateSpnedList"></add-bill-dialog>
     <!-- 列表 -->
     <div class="com-scroll-y">
       <el-row :gutter="0" style="margin-bottom: .05rem; padding: 0 .05rem;">
@@ -34,41 +34,55 @@
           </div>
         </el-col>
       </el-row>
-      <el-row v-for="(hundredItem, hundredIndex) in hundredList" :key="'hundredIndex' + hundredIndex">
-        <el-col :span="12">
-          <div class="hundred-name">{{hundredItem.name}}</div>
-        </el-col>
-        <el-col :span="12">
-          <div class="hundred-price">-{{hundredItem.price | formatMoney(2, '')}}</div>
-        </el-col>
-      </el-row>
-      <el-row>
-        <el-col :span="24">
-          <div class="spend-total">{{nowYear}}年{{nowMonth}}月总支出：{{monthTotal | formatMoney(2, '¥')}}</div>
-        </el-col>
-      </el-row>
-      <el-row :gutter="0" v-for="(item0, index0) in spendList" :key="index0">
-        <el-row :gutter="0">
-          <el-col class="day-block" :span="12">{{item0.day}}日</el-col>
-          <el-col class="day-block total" :span="12">支出：{{item0.total | formatMoney(2, '¥')}}</el-col>
-        </el-row>
-        <el-row :gutter="0" v-for="(item1, index1) in item0.bill" :key="index1">
-          <el-col :span="15">
-            <div class="col-block" @touchstart="touchStartFn(item1)" @touchend="touchEndFn(item1)">
-              <span>{{item1.name}}</span>
-              <span class="time">{{item1.date | formatDate('hh:mm')}}&nbsp;&nbsp;{{sortMap[item1.sort]}}</span>
-            </div>
+      <div v-if="spendList && spendList.length > 0">
+        <div class="hundred-list-title">{{nowMonth}}月超过￥100的支出项</div>
+        <el-row v-for="(hundredItem, hundredIndex) in hundredList" :key="'hundredIndex' + hundredIndex">
+          <el-col :span="12">
+            <div class="hundred-name">{{hundredItem.name}}</div>
           </el-col>
-          <el-col :span="9">
-            <div class="col-block money">
-              <span v-if="!item1.showInput">-</span>
-              <i v-else class="el-icon-check confirm-icon" @click="confirmPriceFn(item1)"></i>
-              <span v-if="!item1.showInput" @click="showInputFn(item1)">{{item1.price | formatMoney(2, '')}}</span>
-              <input v-else type="text" class="el-input__inner" v-model="item1.price">
+          <el-col :span="12">
+            <div class="hundred-price">-{{hundredItem.price | formatMoney(2, '')}}</div>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="24">
+            <div class="spend-total">
+              <span>{{nowMonth}}月</span>
+              <span v-if="monthIncome > 0">收入{{monthIncome | formatMoney(2, '¥')}}</span>
+              <span v-if="monthTotal > 0">支出{{monthTotal | formatMoney(2, '¥')}}</span><br>
+              <span v-if="monthIncome >= monthTotal">净收入：{{monthIncome - monthTotal | formatMoney(2, '¥')}}</span>
+              <span v-else>净收入：-{{monthTotal - monthIncome | formatMoney(2, '¥')}}</span>
             </div>
           </el-col>
         </el-row>
-      </el-row>
+        <el-row :gutter="0" v-for="(item0, index0) in spendList" :key="index0">
+          <el-row :gutter="0">
+            <el-col class="day-block" :span="4">{{item0.day}}日</el-col>
+            <el-col class="day-block total" :span="20">
+              <span v-if="item0.income > 0">收入：{{item0.income | formatMoney(2, '¥')}}</span>
+              <span v-if="item0.total > 0">支出：{{item0.total | formatMoney(2, '¥')}}</span>
+            </el-col>
+          </el-row>
+          <el-row :gutter="0" v-for="(item1, index1) in item0.bill" :key="index1">
+            <el-col :span="15">
+              <div class="col-block" @touchstart="touchStartFn(item1)" @touchend="touchEndFn(item1)">
+                <span>{{item1.name}}</span>
+                <span class="time">{{item1.date | formatDate('hh:mm')}}&nbsp;&nbsp;{{sortMap[item1.sort]}}</span>
+              </div>
+            </el-col>
+            <el-col :span="9">
+              <div class="col-block money">
+                <span v-if="!item1.showInput && item1.type === 0">-</span>
+                <span v-if="!item1.showInput && item1.type === 1">+</span>
+                <i v-if="item1.showInput" class="el-icon-check confirm-icon" @click="confirmPriceFn(item1)"></i>
+                <span v-if="!item1.showInput" @click="showInputFn(item1)">{{item1.price | formatMoney(2, '')}}</span>
+                <input v-else type="text" class="el-input__inner" v-model="item1.price">
+              </div>
+            </el-col>
+          </el-row>
+        </el-row>
+      </div>
+      <div v-else class="no-data">暂无数据</div>
     </div>
   </div>
 </template>
@@ -77,7 +91,7 @@
 import "@/common/directive/format-date.js";
 import "@/common/directive/format-money.js";
 
-import AddSpendDialog from '@/template/add-bill-dialog.vue';
+import AddBillDialog from '@/template/add-bill-dialog.vue';
 
 import Vue from 'vue';
 import { Button, Row, Col, Select, Option, MessageBox } from 'element-ui';
@@ -92,11 +106,13 @@ export default {
   name: "Home",
   data() {
     return {
+      isLoaded: false,
       nowYear: new Date().getFullYear(),
       nowMonth: new Date().getMonth() + 1,
       years: [2020],
       months: [1],
       monthTotal: 0,
+      monthIncome: 0,
       spendList: [],
       hundredList: [],
       sortMap: {
@@ -105,6 +121,7 @@ export default {
         3: '餐饮美食',
         4: '通讯物流',
         5: '转账充值',
+        6: '工资',
         9: '其他',
       },
       nowSort: [],
@@ -124,13 +141,16 @@ export default {
         label: '转账充值',
         value: 5
       }, {
+        label: '工资',
+        value: 6
+      }, {
         label: '其他',
         value: 9
       }]
     };
   },
   components: {
-    AddSpendDialog
+    AddBillDialog
   },
   created() {
     for (let i = 1; i <= 20; i++) {
@@ -189,7 +209,7 @@ export default {
      */
     confirmPriceFn(item) {
       $http({
-        path: '/spend/update',
+        path: '/test/update',
         method: 'post',
         data: item,
       }).then(res => {
@@ -204,7 +224,7 @@ export default {
        */
     deleteSpendFn(item) {
       $http({
-        path: '/spend/delete',
+        path: '/test/delete',
         method: 'post',
         data: item,
       }).then(res => {
@@ -221,7 +241,7 @@ export default {
         model: false
       });
       $http({
-        path: '/spend/list',
+        path: '/test/list',
         data: {
           year: this.nowYear,
           month: this.nowMonth,
@@ -231,9 +251,11 @@ export default {
         if (res.code === 0) {
           this.spendList = res.data.spend;
           this.monthTotal = res.data.total;
+          this.monthIncome = res.data.income;
         }
       }).finally(res => {
         $pageLoading();
+        this.isLoaded = true;
       });
     },
     /**
@@ -251,7 +273,7 @@ export default {
         model: false
       });
       $http({
-        path: '/spend/hundred',
+        path: '/test/hundred',
         data: {
           year: this.nowYear,
           month: this.nowMonth,
@@ -289,7 +311,21 @@ export default {
 <style scoped>
 .spend-content {
   width: 100%;
-  background-color: #eee;
+  background-color: #fff;
+}
+
+.no-data {
+  width: 100%;
+  height: calc(100% - .6rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hundred-list-title {
+  padding: 0 .1rem;
+  font-size: .16rem;
+  color: #666666;
 }
 
 .el-row {
@@ -305,13 +341,13 @@ export default {
 
 .spend-total {
   padding: 0.1rem;
-  height: 0.56rem;
-  line-height: 0.36rem;
+  line-height: 0.26rem;
   text-align: right;
   font-weight: bold;
-  color: lightsteelblue;
+  color: #87ceeb;
   font-size: 0.18rem;
 }
+
 
 .day-block {
   padding: 0.05rem 0.1rem;
@@ -353,13 +389,13 @@ export default {
 
 .hundred-name {
   padding: 0.02rem 0.1rem;
-  color: deeppink;
+  color: #ff4500;
 }
 
 .hundred-price {
   padding: 0.02rem 0.1rem;
   text-align: right;
-  color: magenta;
+  color: #ff6347;
 }
 
 .confirm-icon {
